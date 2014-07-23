@@ -1,0 +1,56 @@
+diff -r c806da296b56 -r 7fdf049814ad src/aodv/model/aodv-routing-protocol.cc
+--- a/src/aodv/model/aodv-routing-protocol.cc   Wed Apr 10 20:52:52 2013 -0700
++++ b/src/aodv/model/aodv-routing-protocol.cc   Sun May 05 16:16:40 2013 -0700
+@@ -910,6 +910,7 @@
+     {
+       if (!m_htimer.IsRunning ())
+         {
++          NS_LOG_LOGIC ("Reset HelloInterval since broadcasting RREQ");
+           m_htimer.Cancel ();
+           m_htimer.Schedule (HelloInterval - Time (0.01 * MilliSeconds (
+                              m_uniformRandomVariable->GetInteger (0, 10))));
+         }
+@@ -1150,7 +1151,18 @@
+           rreqHeader.SetUnknownSeqno (false);
+         }
+     }
++  //Forward RREQ with a random delay to prevent broadcast collision
++  uint32_t randomDelay = m_uniformRandomVariable->GetInteger (10, 50) * 10;
++  NS_LOG_DEBUG ("Forward RREQ from " << src << ", with delay " << randomDelay << " us");
++  Simulator::Schedule (Time (MicroSeconds (randomDelay)),
++                       &RoutingProtocol::ForwardRequest, this, rreqHeader);
+
++}
++
++void
++RoutingProtocol::ForwardRequest (RreqHeader rreqHeader)
++{
++  NS_LOG_FUNCTION (this);
+   for (std::map<Ptr<Socket>, Ipv4InterfaceAddress>::const_iterator j =
+          m_socketAddresses.begin (); j != m_socketAddresses.end (); ++j)
+     {
+@@ -1177,6 +1189,7 @@
+     {
+       if (!m_htimer.IsRunning ())
+         {
++          NS_LOG_LOGIC ("Reset HelloInterval since broadcasting forwarded RREQ");
+           m_htimer.Cancel ();
+           m_htimer.Schedule (HelloInterval - Time (0.1 * MilliSeconds (
+                              m_uniformRandomVariable->GetInteger (0, 10))));
+        }
+diff -r c806da296b56 -r 7fdf049814ad src/aodv/model/aodv-routing-protocol.h
+--- a/src/aodv/model/aodv-routing-protocol.h    Wed Apr 10 20:52:52 2013 -0700
++++ b/src/aodv/model/aodv-routing-protocol.h    Sun May 05 16:16:40 2013 -0700
+@@ -216,7 +216,11 @@
+   /// Receive RERR from node with address src
+   void RecvError (Ptr<Packet> p, Ipv4Address src);
+   //\}
+-
++  ///\name Forward control packet
++  //\{
++  ///Forward RREQ
++  void ForwardRequest (RreqHeader rreqHeader);
++  //\}
+   ///\name Send
+   //\{
+   /// Forward packet from route request queue
